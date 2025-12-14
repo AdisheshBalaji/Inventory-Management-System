@@ -11,74 +11,86 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Register Route
+// Register Route for Employees
 app.post("/api/register", async (req, res) => {
     try {
-        let {username, email, password} = req.body;
-        password = await bcrypt.hash(password, 10);
+        const { username, email, password, warehouse_id, position } = req.body;
 
         // Validate input
-        if (!username || !email || !password) {
+        if (!username || !email || !password || !warehouse_id || !position) {
             return res.status(400).json({ message: "All fields are required" });
         }
 
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Insert employee
         const [result] = await pool.query(
-            'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
-            [username, email, password]
+            'INSERT INTO employee (name, email, password_hash, warehouse_id, position) VALUES (?, ?, ?, ?, ?)',
+            [username, email, hashedPassword, warehouse_id, position]
         );
 
         res.status(201).json({
-            message: "User created successfully"
+            message: "Employee registered successfully"
         });
         
     } catch (err) {
         console.error("DB Error: ", err);
-        console.error("SQL Message: ", err.sqlMessage)
-        res.status(500).json({ message: err.sqlMessage });
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: "Username or email already exists" });
+        }
+        res.status(500).json({ message: "Registration failed" });
     }
 });
 
-// login route
-app.post("/api/", async (req, res) => {
+// Login route for Employees
+app.post("/api/login", async (req, res) => {
     try {
-        const {username, password} = req.body;
+        const { email, password } = req.body;
         
-        if (!username || !password){
-            return res.status(400).json({message: "Username and password required"})
+        if (!email || !password) {
+            return res.status(400).json({ message: "Email and password required" });
         }
 
+        // Find employee by email
         const [rows] = await pool.query(
-            'SELECT * FROM users WHERE username = ?',
-            [username]
+            'SELECT * FROM employee WHERE email = ?',
+            [email]
         );
 
-        if(rows.length == 0){
-            return res.status(401).json({message : "Invalid username or password"})
+        if (rows.length === 0) {
+            return res.status(401).json({ message: "Invalid credentials" });
         }
 
-        const user = rows[0];
+        const employee = rows[0];
 
-        const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+        // Verify password
+        const isPasswordValid = await bcrypt.compare(password, employee.password_hash);
 
-        if(!isPasswordValid){
-            return res.status(401).json({message : "Invalid username or password"})
+        if (!isPasswordValid) {
+            return res.status(401).json({ message: "Invalid credentials" });
         }
 
         res.status(200).json({
             message: "Login successful",
-            user : {username: user.username, email: user.email}
-        })
-    }catch(err){
+            employee: {
+                id: employee.employee_id,
+                name: employee.name,
+                email: employee.email,
+                warehouse_id: employee.warehouse_id,
+                position: employee.position
+            }
+        });
+    } catch (err) {
         console.log("Database error: ", err);
-        res.status(500).json({message: err.sqlMessage})
+        res.status(500).json({ message: "Login failed" });
     }
-})
+});
 
-// Get all users
-app.get('/api/users', async (req, res) => {
+// Get all warehouses (for registration dropdown)
+app.get('/api/warehouses', async (req, res) => {
     try {
-        const [rows] = await pool.query('SELECT * FROM users');
-        console.log('Fetched users successfully');
+        const [rows] = await pool.query('SELECT warehouse_id, name, location FROM warehouse');
         res.json(rows);
     } catch (error) {
         res.status(500).json({ error: error.message }); 

@@ -1,56 +1,54 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './login.css';
 
 function Login() {
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    // const navigate = useNavigate();
 
     const handleLogin = async (e) => {
         e.preventDefault();
+        setError('');
+        
         try {
-            const response = await fetch("http://localhost:8000/api/", {
+            const response = await fetch("http://localhost:8000/api/login", {
                 method: "POST",
-                body: JSON.stringify({
-                    username,
-                    password
-                }),
+                body: JSON.stringify({ email, password }),
                 headers: {
                     "Content-Type": "application/json"
                 }
             });
 
-            if(!response.ok && response.status === 404){
-                setError("Backend server not found");
-                return;
-            }
-
             const data = await response.json();
             
             if (response.ok) {
+                // Store employee data in localStorage
+                localStorage.setItem('employee', JSON.stringify(data.employee));
+                
                 alert('Login successful!');
-                setUsername('');
-                setPassword('');
+                // navigate('/dashboard');
             } else {
                 setError(data.message);
             }
         } catch (err) {
-            setError('Error: ' + err.message);
-            console.log(err);
+            setError('Connection error. Please try again.');
+            console.error(err);
         }
     };
 
     return (
         <div className="login-container">
             <div className="login-box">
-                <h1>Login</h1>
+                <h1>Employee Login</h1>
                 
                 <form onSubmit={handleLogin}>
                     <input
-                        type="text"
-                        placeholder="Username"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
+                        type="email"
+                        placeholder="Email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         required
                     />
 

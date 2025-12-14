@@ -13,8 +13,10 @@ CREATE TABLE users (
     email VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role_id INT DEFAULT 2,
+    warehouse_id INT, 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (role_id) REFERENCES roles(id)
+    FOREIGN KEY (role_id) REFERENCES roles(id),
+    FOREIGN KEY (warehouse_id) REFERENCES warehouses(id);
 );
 
 -- WAREHOUSES
@@ -30,6 +32,7 @@ CREATE TABLE products (
     sku VARCHAR(255) UNIQUE NOT NULL,
     name VARCHAR(100) NOT NULL,
     unit_price DECIMAL(10,2) NOT NULL,
+    -- minimum quantity threshold for a product
     reorder_level INT NOT NULL,
     warehouse_id INT NOT NULL,
     FOREIGN KEY (warehouse_id) REFERENCES warehouses(id)

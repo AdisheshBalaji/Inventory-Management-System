@@ -1,0 +1,122 @@
+
+
+INSERT INTO product (name, unit_price, warehouse_id) VALUES
+-- Warehouse 1
+('Wheat', 25.50, 1),
+('Barley', 22.75, 1),
+('Rice', 30.00, 1),
+('Corn', 18.50, 1),
+('Oats', 20.25, 1),
+('Rye', 24.00, 1),
+('Millet', 28.50, 1),
+('Sorghum', 21.75, 1),
+('Quinoa', 45.00, 1),
+('Buckwheat', 32.50, 1),
+
+-- Warehouse 2
+('Wheat', 25.50, 2),
+('Barley', 22.75, 2),
+('Rice', 30.00, 2),
+('Corn', 18.50, 2),
+('Oats', 20.25, 2),
+('Rye', 24.00, 2),
+('Millet', 28.50, 2),
+('Sorghum', 21.75, 2),
+('Quinoa', 45.00, 2),
+('Buckwheat', 32.50, 2),
+
+-- Warehouse 3
+('Wheat', 25.50, 3),
+('Barley', 22.75, 3),
+('Rice', 30.00, 3),
+('Corn', 18.50, 3),
+('Oats', 20.25, 3),
+('Rye', 24.00, 3),
+('Millet', 28.50, 3),
+('Sorghum', 21.75, 3),
+('Quinoa', 45.00, 3),
+('Buckwheat', 32.50, 3),
+
+-- Warehouse 4
+('Wheat', 25.50, 4),
+('Barley', 22.75, 4),
+('Rice', 30.00, 4),
+('Corn', 18.50, 4),
+('Oats', 20.25, 4),
+('Rye', 24.00, 4),
+('Millet', 28.50, 4),
+('Sorghum', 21.75, 4),
+('Quinoa', 45.00, 4),
+('Buckwheat', 32.50, 4),
+
+-- Warehouse 5
+('Wheat', 25.50, 5),
+('Barley', 22.75, 5),
+('Rice', 30.00, 5),
+('Corn', 18.50, 5),
+('Oats', 20.25, 5),
+('Rye', 24.00, 5),
+('Millet', 28.50, 5),
+('Sorghum', 21.75, 5),
+('Quinoa', 45.00, 5),
+('Buckwheat', 32.50, 5),
+
+-- Warehouse 6
+('Wheat', 25.50, 6),
+('Barley', 22.75, 6),
+('Rice', 30.00, 6),
+('Corn', 18.50, 6),
+('Oats', 20.25, 6),
+('Rye', 24.00, 6),
+('Millet', 28.50, 6),
+('Sorghum', 21.75, 6),
+('Quinoa', 45.00, 6),
+('Buckwheat', 32.50, 6),
+
+-- Warehouse 7
+('Wheat', 25.50, 7),
+('Barley', 22.75, 7),
+('Rice', 30.00, 7),
+('Corn', 18.50, 7),
+('Oats', 20.25, 7),
+('Rye', 24.00, 7),
+('Millet', 28.50, 7),
+('Sorghum', 21.75, 7),
+('Quinoa', 45.00, 7),
+('Buckwheat', 32.50, 7),
+
+-- Warehouse 8
+('Wheat', 25.50, 8),
+('Barley', 22.75, 8),
+('Rice', 30.00, 8),
+('Corn', 18.50, 8),
+('Oats', 20.25, 8),
+('Rye', 24.00, 8),
+('Millet', 28.50, 8),
+('Sorghum', 21.75, 8),
+('Quinoa', 45.00, 8),
+('Buckwheat', 32.50, 8),
+
+-- Warehouse 9
+('Wheat', 25.50, 9),
+('Barley', 22.75, 9),
+('Rice', 30.00, 9),
+('Corn', 18.50, 9),
+('Oats', 20.25, 9),
+('Rye', 24.00, 9),
+('Millet', 28.50, 9),
+('Sorghum', 21.75, 9),
+('Quinoa', 45.00, 9),
+('Buckwheat', 32.50, 9),
+
+-- Warehouse 10
+('Wheat', 25.50, 10),
+('Barley', 22.75, 10),
+('Rice', 30.00, 10),
+('Corn', 18.50, 10),
+('Oats', 20.25, 10),
+('Rye', 24.00, 10),
+('Millet', 28.50, 10),
+('Sorghum', 21.75, 10),
+('Quinoa', 45.00, 10),
+('Buckwheat', 32.50, 10);
