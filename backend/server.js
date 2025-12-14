@@ -97,7 +97,50 @@ app.get('/api/warehouses', async (req, res) => {
     }
 });
 
+// get warehouse by id
+app.get('/api/warehouse/:id', async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            'SELECT warehouse_id, name, location FROM warehouse WHERE warehouse_id = ?',
+            [req.params.id]
+        );
+
+        if(rows.length === 0){
+            return res.status(404).json({message: 'Warehouse not found'})
+        }
+
+        res.json(rows[0]);
+
+
+    }catch(err){
+        res.status(500).json({error: err.message})
+    }
+})
+
+// get stocks for a warehouse
+app.get('/api/stocks/:warehouseId', async (req, res) => {
+    try {
+        const [rows] = await pool.query(`
+            SELECT
+                s.stock_id,
+                s.product_id,
+                p.name as product_name,
+                p.unit_price,
+                s.quantity,
+                s.reserved_quantity
+            FROM stock s
+            JOIN product p ON s.product_id = p.product_id
+            WHERE s.warehouse_id = ?
+            `, [req.params.warehouseId]);
+            res.json(rows);
+    }catch(err){
+        res.status(500).json({error: err.message})
+    }
+})
+
 const PORT = 8000;
 app.listen(PORT, () => {
     console.log(`Server running on http://127.0.0.1:${PORT}`);
 });
+
+

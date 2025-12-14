@@ -6,7 +6,7 @@ function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    // const navigate = useNavigate();
+    const navigate = useNavigate();
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -28,7 +28,8 @@ function Login() {
                 localStorage.setItem('employee', JSON.stringify(data.employee));
                 
                 alert('Login successful!');
-                // navigate('/dashboard');
+                navigate('/dashboard');
+
             } else {
                 setError(data.message);
             }

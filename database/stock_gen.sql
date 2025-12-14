@@ -1,6 +1,3 @@
--- Stocks for each product in each warehouse with high quantities
--- Assuming product_id starts from 1 and increments
-
 -- Warehouse 1 stocks (product_id 1-10)
 INSERT INTO stock (product_id, warehouse_id, quantity, reserved_quantity) VALUES
 (1, 1, 15000, 500),
