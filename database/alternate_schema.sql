@@ -67,3 +67,19 @@ CREATE TABLE sales_orders (
     FOREIGN KEY (customer_id) REFERENCES customer(customer_id),
     FOREIGN KEY (product_id) REFERENCES product(product_id)
 );
+
+-- Constraints to ensure data integrity
+
+-- Stock table constraints
+ALTER TABLE stock
+ADD CONSTRAINT chk_quantity_non_negative CHECK (quantity >= 0),
+ADD CONSTRAINT chk_reserved_quantity_non_negative CHECK (reserved_quantity >= 0);
+ADD CONSTRAINT chk_reserved_not_exceed_quantity CHECK (reserved_quantity <= quantity);
+
+-- Stock transactions constraints
+ALTER TABLE stock_transactions
+ADD CONSTRAINT chk_transaction_quantity_positive CHECK (quantity > 0);
+
+-- Products table constraints
+ALTER TABLE products
+ADD CONSTRAINT chk_unit_price_positive CHECK (unit_price > 0);
