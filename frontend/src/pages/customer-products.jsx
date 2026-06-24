@@ -126,7 +126,7 @@ function CustomerProducts() {
     const handleLogout = () => {
         localStorage.removeItem('customer');
         localStorage.removeItem('cart');
-        navigate('/customer/login');
+        navigate('/customer-login');
     };
 
     const getTotalPrice = () => {
@@ -142,6 +142,7 @@ function CustomerProducts() {
                 </div>
                 <div className="header-right">
                     {customer && <span className="welcome-text">Welcome, <strong>{customer.name}</strong></span>}
+                    <button onClick={() => navigate('/customer-orders')} className="my-orders-btn">My Orders</button>
                     <button onClick={handleLogout} className="logout-btn">Logout</button>
                 </div>
             </header>

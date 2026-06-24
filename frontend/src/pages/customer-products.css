@@ -55,6 +55,23 @@
     background-color: #555;
 }
 
+.my-orders-btn {
+    padding: 0.5rem 1rem;
+    background-color: white;
+    color: #333;
+    border: 1px solid #333;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.my-orders-btn:hover {
+    background-color: #333;
+    color: white;
+}
+
 /* Search Bar */
 .search-filter {
     padding: 1.5rem 2rem;

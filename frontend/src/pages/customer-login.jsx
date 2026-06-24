@@ -30,6 +30,8 @@ function CustomerLogin() {
                 alert('Login successful!');
                 navigate('/customer-products')
 
+                
+
             } else {
                 setError(data.message);
             }
