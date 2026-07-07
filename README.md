@@ -57,7 +57,6 @@ Key design goals:
   - **Reject**: releases the reservation (`reserved_quantity` only), leaving physical stock untouched.
 
 ### Customer Portal
-- **Email-based Login** — passwordless login via registered email.
 - **Product Catalog** — browse all products with real-time available quantity (aggregated across all warehouses, deduplicated by name/price).
 - **Shopping Cart** — add items, adjust quantities, and proceed to checkout.
 - **Checkout & Order Placement** — intelligent warehouse routing selects the best-stocked warehouse per product; stock is reserved atomically on placement.
@@ -201,20 +200,7 @@ erDiagram
 
 ---
 
-## Security Design
 
-| Concern              | Implementation                                                                                     |
-|----------------------|----------------------------------------------------------------------------------------------------|
-| Password storage     | `bcryptjs` with cost factor 10 — plaintext passwords never persisted                              |
-| Authentication       | Stateless JWT with configurable expiry (default: 7 days)                                          |
-| Token revocation     | In-memory JWT blacklist keyed by `jti` (UUID per token); stale entries swept every 15 minutes    |
-| Authorization        | `requireRole('employee' | 'customer')` middleware on every protected route                       |
-| Warehouse scoping    | Warehouse ID is read exclusively from the verified JWT — clients cannot spoof a warehouse claim   |
-| Rate limiting        | Auth endpoints: 10 req / 15 min / IP · All API routes: 200 req / 15 min / IP                     |
-| CORS                 | Strict origin whitelist via `FRONTEND_URL` env var; credentials allowed                          |
-
-
----
 
 ## Project Structure
 
