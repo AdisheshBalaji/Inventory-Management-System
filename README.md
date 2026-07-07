@@ -12,7 +12,6 @@ A full-stack web application for managing multi-warehouse inventory, processing 
 - [Features](#features)
 - [Database Schema](#database-schema)
 - [API Reference](#api-reference)
-- [Security Design](#security-design)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
 - [Environment Variables](#environment-variables)
@@ -44,6 +43,38 @@ Key design goals:
 
 ---
 
+## Architecture
+
+The backend follows a **layered architecture** that separates concerns across four distinct layers:
+
+```
+HTTP Request
+    │
+    ▼
+ routes/          ← declares Express paths and chains middleware
+    │
+    ▼
+ middleware/      ← authenticateToken, requireRole, rate limiters
+    │
+    ▼
+ controllers/     ← validates input, runs queries, sends HTTP response
+    │
+    ▼
+ services/        ← pure business logic shared across controllers
+    │
+    ▼
+ db.js            ← mysql2 connection pool
+```
+
+| Layer | Responsibility |
+|---|---|
+| **routes/** | Wires URL paths to controller functions; applies per-route middleware |
+| **middleware/** | `auth.js` — JWT verification & role guard; `rateLimit.js` — IP-based throttling & in-memory JWT blacklist |
+| **controllers/** | One file per resource domain (auth, orders, products, stock, warehouse); owns request/response cycle |
+| **services/** | `orderService.js` — pure functions shared between controllers (e.g. `deriveOrderStatus`) |
+| **db.js** | Exports a single `mysql2/promise` connection pool used by all controllers |
+
+---
 
 ## Features
 
@@ -207,10 +238,27 @@ erDiagram
 ```
 inventory_management_system/
 ├── backend/
-│   ├── server.js          # All API routes, middleware, and auth logic (~878 lines)
-│   ├── db.js              # MySQL connection pool (mysql2/promise)
-│   ├── employee_gen.js    # Seed script — inserts 20 employees across 10 warehouses
-│   ├── .env               # Environment variables (not committed)
+│   ├── server.js              # Express app entry point — mounts routes and global middleware
+│   ├── db.js                  # MySQL connection pool (mysql2/promise)
+│   ├── employee_gen.js        # Seed script — inserts 20 employees across 10 warehouses
+│   ├── controllers/
+│   │   ├── authController.js       # Register, login (employee & customer), logout
+│   │   ├── orderController.js      # Place orders, fulfill/reject items, order queries
+│   │   ├── productController.js    # Available products, single product lookup
+│   │   ├── stockController.js      # Stock levels, adjustments, transaction history
+│   │   └── warehouseController.js  # Warehouse listing and detail
+│   ├── middleware/
+│   │   ├── auth.js            # JWT verification middleware (employee & customer guards)
+│   │   └── rateLimit.js       # express-rate-limit configuration for auth endpoints
+│   ├── routes/
+│   │   ├── auth.js            # POST /api/register, /api/login, /api/customer-login, /api/logout
+│   │   ├── orders.js          # Order and order-item routes
+│   │   ├── products.js        # Product routes
+│   │   ├── stocks.js          # Stock routes
+│   │   └── warehouses.js      # Warehouse routes
+│   ├── services/
+│   │   └── orderService.js    # Shared order-processing business logic (warehouse routing, reservations)
+│   ├── .env                   # Environment variables (not committed)
 │   └── package.json
 │
 ├── database/
@@ -223,15 +271,18 @@ inventory_management_system/
 └── frontend/
     ├── src/
     │   ├── App.jsx            # React Router route definitions
+    │   ├── main.jsx           # React entry point
+    │   ├── index.css          # Global styles
+    │   ├── components/        # Shared/reusable React components
     │   ├── pages/
-    │   │   ├── landing.jsx           # Home / role selector
-    │   │   ├── login.jsx             # Employee login
-    │   │   ├── register.jsx          # Employee registration
-    │   │   ├── dashboard.jsx         # Employee dashboard (stock, orders, history)
-    │   │   ├── customer-login.jsx    # Customer login
-    │   │   ├── customer-products.jsx # Product catalog with cart
-    │   │   ├── checkout.jsx          # Order placement
-    │   │   └── customer-orders.jsx   # Customer order history
+    │   │   ├── landing.jsx / landing.css           # Home / role selector
+    │   │   ├── login.jsx / login.css               # Employee login
+    │   │   ├── register.jsx / register.css         # Employee registration
+    │   │   ├── dashboard.jsx / dashboard.css       # Employee dashboard (stock, orders, history)
+    │   │   ├── customer-login.jsx                  # Customer login
+    │   │   ├── customer-products.jsx / customer-products.css  # Product catalog with cart
+    │   │   ├── checkout.jsx / checkout.css         # Order placement
+    │   │   └── customer-orders.jsx / customer-orders.css     # Customer order history
     │   └── utils/
     │       └── auth.js        # JWT helpers: getToken, authHeaders, logout, handleUnauthorized
     ├── index.html
