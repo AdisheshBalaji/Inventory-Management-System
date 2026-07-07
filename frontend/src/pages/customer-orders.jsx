@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authHeaders, handleUnauthorized } from '../utils/auth';
+import { authHeaders, handleUnauthorized, logout } from '../utils/auth';
 import './customer-orders.css';
 
 const STATUS_LABEL = {
@@ -48,12 +48,7 @@ function CustomerOrders() {
         }
     };
 
-    const handleLogout = () => {
-        localStorage.removeItem('customer');
-        localStorage.removeItem('token');
-        localStorage.removeItem('cart');
-        navigate('/customer-login');
-    };
+    const handleLogout = () => logout(navigate, 'customer');
 
     return (
         <div className="orders-page">

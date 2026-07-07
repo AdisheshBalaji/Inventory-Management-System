@@ -4,13 +4,78 @@ import dotenv from 'dotenv';
 import pool from './db.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
+import rateLimit from 'express-rate-limit';
 
 dotenv.config();
 
 const app = express();
 
-app.use(cors());
+// ─────────────────────────────────────────────
+// CORS
+// ─────────────────────────────────────────────
+
+// Only allow requests from the configured frontend origin.
+// Set FRONTEND_URL in .env (e.g. http://localhost:5173 for dev,
+// https://your-app.vercel.app for production).
+app.use(cors({
+    origin: process.env.FRONTEND_URL,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+}));
+
 app.use(express.json());
+
+// ─────────────────────────────────────────────
+// RATE LIMITING
+// ─────────────────────────────────────────────
+
+/**
+ * Strict limiter for authentication endpoints.
+ * 10 attempts per 15 minutes per IP — blocks brute-force login attacks.
+ */
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,    // 15 minutes
+    max: 10,
+    standardHeaders: true,        // Return rate limit info in RateLimit-* headers
+    legacyHeaders: false,
+    message: { message: 'Too many attempts from this IP. Please try again in 15 minutes.' }
+});
+
+/**
+ * General limiter for all other API routes.
+ * 200 requests per 15 minutes per IP — prevents API abuse.
+ */
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 200,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: 'Too many requests from this IP. Please slow down.' }
+});
+
+// Apply general limiter to all /api/* routes
+app.use('/api', apiLimiter);
+
+// ─────────────────────────────────────────────
+// JWT BLACKLIST  (in-memory)
+// ─────────────────────────────────────────────
+
+/**
+ * Maps jti → expiry unix-timestamp (seconds).
+ * Tokens added here are rejected by authenticateToken even if cryptographically valid.
+ * Entries are cleaned up automatically once they've expired.
+ */
+const tokenBlacklist = new Map();
+
+// Sweep expired entries every 15 minutes so the Map doesn't grow forever
+setInterval(() => {
+    const now = Math.floor(Date.now() / 1000);
+    for (const [jti, exp] of tokenBlacklist) {
+        if (exp <= now) tokenBlacklist.delete(jti);
+    }
+}, 15 * 60 * 1000);
 
 // ─────────────────────────────────────────────
 // JWT MIDDLEWARE
@@ -19,6 +84,7 @@ app.use(express.json());
 /**
  * Verifies the Bearer token in the Authorization header.
  * Attaches the decoded payload to req.user on success.
+ * Also rejects tokens whose jti has been blacklisted (i.e. logged out).
  */
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
@@ -30,6 +96,12 @@ function authenticateToken(req, res, next) {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // Reject if this token has been explicitly revoked via logout
+        if (decoded.jti && tokenBlacklist.has(decoded.jti)) {
+            return res.status(401).json({ message: 'Token has been revoked. Please log in again.' });
+        }
+
         req.user = decoded;
         next();
     } catch (err) {
@@ -54,7 +126,7 @@ function requireRole(role) {
 // ─────────────────────────────────────────────
 
 // Employee registration
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', authLimiter, async (req, res) => {
     try {
         const { username, email, password, warehouse_id, position } = req.body;
 
@@ -81,7 +153,7 @@ app.post('/api/register', async (req, res) => {
 });
 
 // Employee login — issues a JWT
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', authLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
 
@@ -103,6 +175,7 @@ app.post('/api/login', async (req, res) => {
         }
 
         const payload = {
+            jti:          randomUUID(),          // unique token ID — used for blacklisting on logout
             id:           employee.employee_id,
             name:         employee.name,
             email:        employee.email,
@@ -133,7 +206,7 @@ app.post('/api/login', async (req, res) => {
 });
 
 // Customer login — issues a JWT
-app.post('/api/customer-login/', async (req, res) => {
+app.post('/api/customer-login/', authLimiter, async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) {
@@ -149,6 +222,7 @@ app.post('/api/customer-login/', async (req, res) => {
         const customer = rows[0];
 
         const payload = {
+            jti:   randomUUID(),          // unique token ID — used for blacklisting on logout
             id:    customer.customer_id,
             name:  customer.name,
             email: customer.email,
@@ -172,6 +246,23 @@ app.post('/api/customer-login/', async (req, res) => {
         console.log('Database Error: ', err);
         res.status(500).json({ message: 'Login failed' });
     }
+});
+
+// Logout — revoke the current token by adding its jti to the blacklist
+// Works for both employee and customer tokens.
+app.post('/api/logout', authenticateToken, (req, res) => {
+    const { jti, exp } = req.user;
+
+    if (jti && exp) {
+        const now = Math.floor(Date.now() / 1000);
+        const remainingTTL = exp - now;
+        if (remainingTTL > 0) {
+            // Store until the token would have naturally expired
+            tokenBlacklist.set(jti, exp);
+        }
+    }
+
+    res.status(200).json({ message: 'Logged out successfully' });
 });
 
 // ─────────────────────────────────────────────
@@ -228,6 +319,142 @@ app.get('/api/stocks/:warehouseId', authenticateToken, requireRole('employee'), 
         res.json(rows);
     } catch (err) {
         res.status(500).json({ message: 'Database Failure' });
+    }
+});
+
+// Adjust stock for a product in a warehouse (employee — own warehouse only)
+// Body: { product_id, quantity, type: 'IN' | 'OUT' }
+// Effect:
+//   IN  → stock.quantity += qty  (receiving new goods)
+//   OUT → stock.quantity -= qty  (writing off / damage / manual correction)
+//         OUT is blocked if it would push quantity below reserved_quantity
+// Every adjustment is recorded in stock_transactions as an audit trail.
+app.post('/api/stocks/:warehouseId/adjust', authenticateToken, requireRole('employee'), async (req, res) => {
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const warehouseId     = parseInt(req.params.warehouseId, 10);
+        const employeeWHId    = req.user.warehouse_id;       // from JWT
+        const employeeId      = req.user.id;                 // from JWT
+
+        // Scope check — employee may only adjust their own warehouse
+        if (warehouseId !== employeeWHId) {
+            await connection.rollback();
+            return res.status(403).json({ message: 'You are not authorised to adjust stock in another warehouse' });
+        }
+
+        const { product_id, quantity, type } = req.body;
+
+        if (!product_id || !quantity || !type) {
+            await connection.rollback();
+            return res.status(400).json({ message: 'product_id, quantity, and type are required' });
+        }
+
+        if (!['IN', 'OUT'].includes(type)) {
+            await connection.rollback();
+            return res.status(400).json({ message: "type must be 'IN' or 'OUT'" });
+        }
+
+        const qty = parseInt(quantity, 10);
+        if (!Number.isInteger(qty) || qty <= 0) {
+            await connection.rollback();
+            return res.status(400).json({ message: 'quantity must be a positive integer' });
+        }
+
+        // Fetch the current stock row
+        const [stockRows] = await connection.query(
+            'SELECT * FROM stock WHERE product_id = ? AND warehouse_id = ?',
+            [product_id, warehouseId]
+        );
+
+        if (stockRows.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: 'No stock record found for this product in your warehouse' });
+        }
+
+        const stock = stockRows[0];
+
+        if (type === 'OUT') {
+            // Cannot remove more than what is available (quantity - reserved_quantity)
+            const available = stock.quantity - stock.reserved_quantity;
+            if (qty > available) {
+                await connection.rollback();
+                return res.status(400).json({
+                    message: `Cannot remove ${qty} units — only ${available} units are available (${stock.reserved_quantity} are reserved)`
+                });
+            }
+        }
+
+        // Apply the stock adjustment
+        const delta = type === 'IN' ? qty : -qty;
+        await connection.query(
+            'UPDATE stock SET quantity = quantity + ? WHERE product_id = ? AND warehouse_id = ?',
+            [delta, product_id, warehouseId]
+        );
+
+        // Write audit record to stock_transactions
+        await connection.query(
+            `INSERT INTO stock_transactions (product_id, created_by, warehouse_id, quantity, type)
+             VALUES (?, ?, ?, ?, ?)`,
+            [product_id, employeeId, warehouseId, qty, type]
+        );
+
+        await connection.commit();
+
+        const newQuantity = stock.quantity + delta;
+        res.status(200).json({
+            message: `Stock ${type === 'IN' ? 'increased' : 'decreased'} successfully`,
+            product_id,
+            warehouse_id:    warehouseId,
+            adjustment:      type === 'IN' ? `+${qty}` : `-${qty}`,
+            new_quantity:    newQuantity
+        });
+
+    } catch (err) {
+        await connection.rollback();
+        console.error('Stock adjustment error:', err);
+        res.status(500).json({ message: err.message || 'Stock adjustment failed' });
+    } finally {
+        connection.release();
+    }
+});
+
+// Get stock transaction history for a warehouse (employee — own warehouse only)
+// Returns all IN/OUT adjustments with product name and the employee who made the change.
+app.get('/api/stocks/:warehouseId/transactions', authenticateToken, requireRole('employee'), async (req, res) => {
+    try {
+        const warehouseId  = parseInt(req.params.warehouseId, 10);
+        const employeeWHId = req.user.warehouse_id; // from JWT
+
+        // Scope check
+        if (warehouseId !== employeeWHId) {
+            return res.status(403).json({ message: 'You are not authorised to view transactions for another warehouse' });
+        }
+
+        const [rows] = await pool.query(`
+            SELECT
+                st.transaction_id,
+                st.type,
+                st.quantity,
+                st.created_at,
+                p.product_id,
+                p.name        AS product_name,
+                p.unit_price,
+                e.employee_id AS created_by_id,
+                e.name        AS created_by_name,
+                e.position    AS created_by_position
+            FROM stock_transactions st
+            JOIN product  p ON st.product_id  = p.product_id
+            JOIN employee e ON st.created_by  = e.employee_id
+            WHERE st.warehouse_id = ?
+            ORDER BY st.created_at DESC
+        `, [warehouseId]);
+
+        res.json(rows);
+    } catch (err) {
+        console.error('Error fetching transactions:', err);
+        res.status(500).json({ message: 'Failed to fetch transactions' });
     }
 });
 

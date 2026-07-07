@@ -6,6 +6,8 @@
  * role field inside the JWT differentiates them when needed.
  */
 
+const API = 'http://localhost:8000';
+
 /** Read the raw JWT string from localStorage. */
 export function getToken() {
     return localStorage.getItem('token');
@@ -21,6 +23,34 @@ export function authHeaders() {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {})
     };
+}
+
+/**
+ * Logs the current user out.
+ *   1. Calls POST /api/logout so the server blacklists the token's jti.
+ *   2. Clears all auth state from localStorage regardless of network result.
+ *   3. Navigates to the correct login page.
+ *
+ * @param {Function} navigate — React Router's navigate function
+ * @param {'employee'|'customer'} [role] — determines the redirect target
+ */
+export async function logout(navigate, role = 'employee') {
+    try {
+        // Tell the server to revoke this token (best-effort — we clear
+        // localStorage even if the request fails so the user is never stuck)
+        await fetch(`${API}/api/logout`, {
+            method: 'POST',
+            headers: authHeaders()
+        });
+    } catch (_) {
+        // Network error — silently continue; local clear below still protects the client
+    } finally {
+        localStorage.removeItem('token');
+        localStorage.removeItem('employee');
+        localStorage.removeItem('customer');
+        localStorage.removeItem('cart');
+        navigate(role === 'customer' ? '/customer-login' : '/login');
+    }
 }
 
 /**
