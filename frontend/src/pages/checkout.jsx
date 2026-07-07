@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { authHeaders, handleUnauthorized } from '../utils/auth';
 import './checkout.css';
 
 function Checkout() {
@@ -44,7 +45,7 @@ function Checkout() {
         try {
             const response = await fetch('http://localhost:8000/api/orders', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: authHeaders(),
                 body: JSON.stringify({
                     customer_id: customer.id,
                     items: cart.map(item => ({
@@ -53,6 +54,11 @@ function Checkout() {
                     })),
                 }),
             });
+
+            if (response.status === 401) {
+                handleUnauthorized(navigate, 'customer');
+                return;
+            }
 
             const data = await response.json();
 
@@ -173,4 +179,3 @@ function Checkout() {
 }
 
 export default Checkout;
-

@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import pool from './db.js';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 dotenv.config();
 
@@ -12,7 +13,44 @@ app.use(cors());
 app.use(express.json());
 
 // ─────────────────────────────────────────────
-// AUTH
+// JWT MIDDLEWARE
+// ─────────────────────────────────────────────
+
+/**
+ * Verifies the Bearer token in the Authorization header.
+ * Attaches the decoded payload to req.user on success.
+ */
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // "Bearer <token>"
+
+    if (!token) {
+        return res.status(401).json({ message: 'Access token required' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;
+        next();
+    } catch (err) {
+        return res.status(401).json({ message: 'Invalid or expired token' });
+    }
+}
+
+/**
+ * Middleware factory — ensures the authenticated user has the expected role.
+ */
+function requireRole(role) {
+    return (req, res, next) => {
+        if (req.user?.role !== role) {
+            return res.status(403).json({ message: 'Forbidden: insufficient permissions' });
+        }
+        next();
+    };
+}
+
+// ─────────────────────────────────────────────
+// AUTH  (public — no token required)
 // ─────────────────────────────────────────────
 
 // Employee registration
@@ -42,7 +80,7 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-// Employee login
+// Employee login — issues a JWT
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -64,14 +102,28 @@ app.post('/api/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
+        const payload = {
+            id:           employee.employee_id,
+            name:         employee.name,
+            email:        employee.email,
+            warehouse_id: employee.warehouse_id,
+            position:     employee.position,
+            role:         'employee'
+        };
+
+        const token = jwt.sign(payload, process.env.JWT_SECRET, {
+            expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+        });
+
         res.status(200).json({
             message: 'Login successful',
+            token,
             employee: {
-                id: employee.employee_id,
-                name: employee.name,
-                email: employee.email,
+                id:           employee.employee_id,
+                name:         employee.name,
+                email:        employee.email,
                 warehouse_id: employee.warehouse_id,
-                position: employee.position
+                position:     employee.position
             }
         });
     } catch (err) {
@@ -80,7 +132,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// Customer login
+// Customer login — issues a JWT
 app.post('/api/customer-login/', async (req, res) => {
     try {
         const { email } = req.body;
@@ -96,11 +148,23 @@ app.post('/api/customer-login/', async (req, res) => {
 
         const customer = rows[0];
 
+        const payload = {
+            id:    customer.customer_id,
+            name:  customer.name,
+            email: customer.email,
+            role:  'customer'
+        };
+
+        const token = jwt.sign(payload, process.env.JWT_SECRET, {
+            expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+        });
+
         res.status(200).json({
             message: 'Login successful',
+            token,
             customer: {
-                id: customer.customer_id,
-                name: customer.name,
+                id:    customer.customer_id,
+                name:  customer.name,
                 email: customer.email
             }
         });
@@ -111,7 +175,7 @@ app.post('/api/customer-login/', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// WAREHOUSES
+// WAREHOUSES  (public)
 // ─────────────────────────────────────────────
 
 // Get all warehouses
@@ -124,8 +188,8 @@ app.get('/api/warehouses', async (req, res) => {
     }
 });
 
-// Get warehouse by id
-app.get('/api/warehouse/:id', async (req, res) => {
+// Get warehouse by id  (employee only)
+app.get('/api/warehouse/:id', authenticateToken, requireRole('employee'), async (req, res) => {
     try {
         const [rows] = await pool.query(
             'SELECT warehouse_id, name, location FROM warehouse WHERE warehouse_id = ?',
@@ -143,11 +207,11 @@ app.get('/api/warehouse/:id', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// STOCK
+// STOCK  (employee only)
 // ─────────────────────────────────────────────
 
 // Get stock for a warehouse
-app.get('/api/stocks/:warehouseId', async (req, res) => {
+app.get('/api/stocks/:warehouseId', authenticateToken, requireRole('employee'), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT
@@ -168,7 +232,7 @@ app.get('/api/stocks/:warehouseId', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// PRODUCTS
+// PRODUCTS  (public)
 // ─────────────────────────────────────────────
 
 // Get all available products (deduplicated across warehouses)
@@ -194,7 +258,7 @@ app.get('/api/products/available', async (req, res) => {
     }
 });
 
-// Get product by ID with available quantity
+// Get product by ID with available quantity  (public)
 app.get('/api/products/:productId', async (req, res) => {
     try {
         const [rows] = await pool.query(`
@@ -221,7 +285,7 @@ app.get('/api/products/:productId', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// ORDERS — CUSTOMER
+// ORDERS — CUSTOMER  (customer only)
 // ─────────────────────────────────────────────
 
 // Helper: derive overall order status from item statuses
@@ -235,7 +299,7 @@ function deriveOrderStatus(itemStatuses) {
 // Create an order
 // Routing: each product is assigned to the warehouse with the highest available
 // stock for that product name that can fulfil the requested quantity.
-app.post('/api/orders', async (req, res) => {
+app.post('/api/orders', authenticateToken, requireRole('customer'), async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -323,7 +387,7 @@ app.post('/api/orders', async (req, res) => {
 });
 
 // Get order details (with derived overall status)
-app.get('/api/orders/:orderId', async (req, res) => {
+app.get('/api/orders/:orderId', authenticateToken, requireRole('customer'), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT
@@ -361,7 +425,7 @@ app.get('/api/orders/:orderId', async (req, res) => {
 });
 
 // Get all orders for a customer
-app.get('/api/customers/:customerId/orders', async (req, res) => {
+app.get('/api/customers/:customerId/orders', authenticateToken, requireRole('customer'), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT
@@ -422,11 +486,11 @@ app.get('/api/customers/:customerId/orders', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// ORDERS — EMPLOYEE ACTIONS
+// ORDERS — EMPLOYEE ACTIONS  (employee only)
 // ─────────────────────────────────────────────
 
 // Get all PENDING items assigned to a warehouse (employee view)
-app.get('/api/orders/warehouse/:warehouseId/pending', async (req, res) => {
+app.get('/api/orders/warehouse/:warehouseId/pending', authenticateToken, requireRole('employee'), async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT
@@ -459,13 +523,14 @@ app.get('/api/orders/warehouse/:warehouseId/pending', async (req, res) => {
 
 // Fulfill an order item (employee)
 // Effect: stock.quantity -= qty, stock.reserved_quantity -= qty, item.status = FULFILLED
-app.patch('/api/orders/items/:itemId/fulfill', async (req, res) => {
+// Warehouse scope is taken from the verified JWT — no longer supplied by the client.
+app.patch('/api/orders/items/:itemId/fulfill', authenticateToken, requireRole('employee'), async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
 
-        const { employee_warehouse_id } = req.body;
         const itemId = req.params.itemId;
+        const employeeWarehouseId = req.user.warehouse_id; // from JWT
 
         const [items] = await connection.query(
             'SELECT * FROM sales_order_items WHERE item_id = ?',
@@ -480,7 +545,7 @@ app.patch('/api/orders/items/:itemId/fulfill', async (req, res) => {
         const item = items[0];
 
         // Scope check — employee can only act on their own warehouse
-        if (item.warehouse_id !== employee_warehouse_id) {
+        if (item.warehouse_id !== employeeWarehouseId) {
             await connection.rollback();
             return res.status(403).json({ message: 'You are not authorised to fulfil items from another warehouse' });
         }
@@ -519,13 +584,14 @@ app.patch('/api/orders/items/:itemId/fulfill', async (req, res) => {
 
 // Reject an order item (employee)
 // Effect: stock.reserved_quantity -= qty (quantity unchanged), item.status = REJECTED
-app.patch('/api/orders/items/:itemId/reject', async (req, res) => {
+// Warehouse scope is taken from the verified JWT — no longer supplied by the client.
+app.patch('/api/orders/items/:itemId/reject', authenticateToken, requireRole('employee'), async (req, res) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
 
-        const { employee_warehouse_id } = req.body;
         const itemId = req.params.itemId;
+        const employeeWarehouseId = req.user.warehouse_id; // from JWT
 
         const [items] = await connection.query(
             'SELECT * FROM sales_order_items WHERE item_id = ?',
@@ -540,7 +606,7 @@ app.patch('/api/orders/items/:itemId/reject', async (req, res) => {
         const item = items[0];
 
         // Scope check
-        if (item.warehouse_id !== employee_warehouse_id) {
+        if (item.warehouse_id !== employeeWarehouseId) {
             await connection.rollback();
             return res.status(403).json({ message: 'You are not authorised to reject items from another warehouse' });
         }

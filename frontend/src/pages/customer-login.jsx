@@ -24,8 +24,9 @@ function CustomerLogin() {
             const data = await response.json();
             
             if (response.ok) {
-                // Store employee data in localStorage
+                // Store customer data and JWT token in localStorage
                 localStorage.setItem('customer', JSON.stringify(data.customer));
+                localStorage.setItem('token', data.token);
                 
                 alert('Login successful!');
                 navigate('/customer-products')

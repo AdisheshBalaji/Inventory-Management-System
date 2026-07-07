@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { authHeaders, handleUnauthorized } from '../utils/auth';
 import './customer-products.css';
 
 function CustomerProducts() {
@@ -32,6 +33,7 @@ function CustomerProducts() {
 
     const fetchAvailableProducts = async () => {
         try {
+            // Products endpoint is public — no auth header required
             const response = await fetch('http://localhost:8000/api/products/available');
             const data = await response.json();
             setProducts(data);
@@ -125,6 +127,7 @@ function CustomerProducts() {
 
     const handleLogout = () => {
         localStorage.removeItem('customer');
+        localStorage.removeItem('token');
         localStorage.removeItem('cart');
         navigate('/customer-login');
     };

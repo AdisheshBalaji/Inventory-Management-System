@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { authHeaders, handleUnauthorized } from '../utils/auth';
 import './dashboard.css';
 
 function Dashboard() {
@@ -27,10 +28,17 @@ function Dashboard() {
     const fetchWarehouseData = async (warehouseId) => {
         try {
             setLoading(true);
+            const headers = authHeaders();
             const [warehouseRes, stocksRes] = await Promise.all([
-                fetch(`http://localhost:8000/api/warehouse/${warehouseId}`),
-                fetch(`http://localhost:8000/api/stocks/${warehouseId}`)
+                fetch(`http://localhost:8000/api/warehouse/${warehouseId}`, { headers }),
+                fetch(`http://localhost:8000/api/stocks/${warehouseId}`, { headers })
             ]);
+
+            if (warehouseRes.status === 401 || stocksRes.status === 401) {
+                handleUnauthorized(navigate, 'employee');
+                return;
+            }
+
             setWarehouse(await warehouseRes.json());
             setStocks(await stocksRes.json());
         } catch (error) {
@@ -43,7 +51,16 @@ function Dashboard() {
     const fetchPendingOrders = useCallback(async (warehouseId) => {
         try {
             setOrdersLoading(true);
-            const res = await fetch(`http://localhost:8000/api/orders/warehouse/${warehouseId}/pending`);
+            const res = await fetch(
+                `http://localhost:8000/api/orders/warehouse/${warehouseId}/pending`,
+                { headers: authHeaders() }
+            );
+
+            if (res.status === 401) {
+                handleUnauthorized(navigate, 'employee');
+                return;
+            }
+
             const data = await res.json();
             setPendingItems(data);
         } catch (err) {
@@ -51,7 +68,7 @@ function Dashboard() {
         } finally {
             setOrdersLoading(false);
         }
-    }, []);
+    }, [navigate]);
 
     // Load pending orders when tab is switched to 'orders'
     useEffect(() => {
@@ -65,9 +82,15 @@ function Dashboard() {
         try {
             const res = await fetch(`http://localhost:8000/api/orders/items/${itemId}/${action}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ employee_warehouse_id: employee.warehouse_id })
+                headers: authHeaders()
+                // employee_warehouse_id no longer sent — the backend reads it from the JWT
             });
+
+            if (res.status === 401) {
+                handleUnauthorized(navigate, 'employee');
+                return;
+            }
+
             const data = await res.json();
             if (res.ok) {
                 // Remove the acted item from the list and refresh stock
@@ -85,6 +108,7 @@ function Dashboard() {
 
     const handleLogout = () => {
         localStorage.removeItem('employee');
+        localStorage.removeItem('token');
         navigate('/');
     };
 

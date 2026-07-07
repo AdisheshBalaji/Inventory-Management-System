@@ -24,8 +24,9 @@ function Login() {
             const data = await response.json();
             
             if (response.ok) {
-                // Store employee data in localStorage
+                // Store employee data and JWT token in localStorage
                 localStorage.setItem('employee', JSON.stringify(data.employee));
+                localStorage.setItem('token', data.token);
                 
                 alert('Login successful!');
                 navigate('/dashboard');

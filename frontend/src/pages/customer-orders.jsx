@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { authHeaders, handleUnauthorized } from '../utils/auth';
 import './customer-orders.css';
 
 const STATUS_LABEL = {
@@ -28,7 +29,16 @@ function CustomerOrders() {
 
     const fetchOrders = async (customerId) => {
         try {
-            const res = await fetch(`http://localhost:8000/api/customers/${customerId}/orders`);
+            const res = await fetch(
+                `http://localhost:8000/api/customers/${customerId}/orders`,
+                { headers: authHeaders() }
+            );
+
+            if (res.status === 401) {
+                handleUnauthorized(navigate, 'customer');
+                return;
+            }
+
             const data = await res.json();
             setOrders(data);
         } catch (err) {
@@ -40,6 +50,7 @@ function CustomerOrders() {
 
     const handleLogout = () => {
         localStorage.removeItem('customer');
+        localStorage.removeItem('token');
         localStorage.removeItem('cart');
         navigate('/customer-login');
     };
