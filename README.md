@@ -43,28 +43,7 @@ Key design goals:
 
 ---
 
-## Architecture
-
-The backend follows a **layered architecture** that separates concerns across four distinct layers:
-
-```
-HTTP Request
-    │
-    ▼
- routes/          ← declares Express paths and chains middleware
-    │
-    ▼
- middleware/      ← authenticateToken, requireRole, rate limiters
-    │
-    ▼
- controllers/     ← validates input, runs queries, sends HTTP response
-    │
-    ▼
- services/        ← pure business logic shared across controllers
-    │
-    ▼
- db.js            ← mysql2 connection pool
-```
+## Backend Architecture
 
 | Layer | Responsibility |
 |---|---|
