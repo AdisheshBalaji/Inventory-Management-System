@@ -1,13 +1,10 @@
 import pool from '../db.js';
 
-// ─────────────────────────────────────────────
-// WAREHOUSE CONTROLLERS
-// ─────────────────────────────────────────────
 
-/**
- * GET /api/warehouses
- * Returns all warehouses (public).
- */
+
+//GET /api/warehouses
+//Returns all warehouses
+
 export async function getAllWarehouses(req, res) {
     try {
         const [rows] = await pool.query('SELECT warehouse_id, name, location FROM warehouse');
@@ -17,10 +14,9 @@ export async function getAllWarehouses(req, res) {
     }
 }
 
-/**
- * GET /api/warehouse/:id
- * Returns a single warehouse by ID (employee only).
- */
+
+// GET /api/warehouse/:id
+// Returns a single warehouse by ID(employee only).
 export async function getWarehouseById(req, res) {
     try {
         const [rows] = await pool.query(

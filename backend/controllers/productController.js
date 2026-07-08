@@ -1,14 +1,11 @@
 import pool from '../db.js';
 
-// ─────────────────────────────────────────────
-// PRODUCT CONTROLLERS
-// ─────────────────────────────────────────────
 
-/**
- * GET /api/products/available
- * Returns all available products deduplicated across warehouses (public).
- * Groups by name+price so each product appears once with total available quantity.
- */
+
+// GET / api / products / available
+// Returns all available products deduplicated across warehouses(public).
+// Groups by name + price so each product appears once with total available quantity.
+
 export async function getAvailableProducts(req, res) {
     try {
         const [rows] = await pool.query(`
@@ -30,10 +27,10 @@ export async function getAvailableProducts(req, res) {
     }
 }
 
-/**
- * GET /api/products/:productId
- * Returns a product by ID with its total available quantity across all warehouses (public).
- */
+
+//GET /api/products/:productId
+//Returns a product by ID with its total available quantity across all warehouses
+
 export async function getProductById(req, res) {
     try {
         const [rows] = await pool.query(`

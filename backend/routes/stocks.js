@@ -8,13 +8,13 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
-// Get stock for a warehouse (employee only)
+// Get stock for a warehouse
 router.get('/:warehouseId', authenticateToken, requireRole('employee'), getStockByWarehouse);
 
-// Adjust stock for a product in a warehouse (employee — own warehouse only)
+// Adjust stock for a product in a warehouse 
 router.post('/:warehouseId/adjust', authenticateToken, requireRole('employee'), adjustStock);
 
-// Get stock transaction history for a warehouse (employee — own warehouse only)
+// Get stock transaction history for a warehouse 
 router.get('/:warehouseId/transactions', authenticateToken, requireRole('employee'), getStockTransactions);
 
 export default router;

@@ -4,14 +4,10 @@ import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { tokenBlacklist } from '../middleware/rateLimit.js';
 
-// ─────────────────────────────────────────────
-// AUTH CONTROLLERS
-// ─────────────────────────────────────────────
 
-/**
- * POST /api/register
- * Employee registration — hashes the password and inserts a new employee row.
- */
+// POST /api/register
+// Employee registration: hashes the password and inserts a new employee row.
+
 export async function register(req, res) {
     try {
         const { username, email, password, warehouse_id, position } = req.body;
@@ -38,10 +34,9 @@ export async function register(req, res) {
     }
 }
 
-/**
- * POST /api/login
- * Employee login — validates credentials and issues a signed JWT.
- */
+// POST /api/login
+// Employee login: validates credentials and issues a signed JWT.
+
 export async function login(req, res) {
     try {
         const { email, password } = req.body;
@@ -64,13 +59,13 @@ export async function login(req, res) {
         }
 
         const payload = {
-            jti:          randomUUID(),          // unique token ID — used for blacklisting on logout
-            id:           employee.employee_id,
-            name:         employee.name,
-            email:        employee.email,
+            jti: randomUUID(),
+            id: employee.employee_id,
+            name: employee.name,
+            email: employee.email,
             warehouse_id: employee.warehouse_id,
-            position:     employee.position,
-            role:         'employee'
+            position: employee.position,
+            role: 'employee'
         };
 
         const token = jwt.sign(payload, process.env.JWT_SECRET, {
@@ -81,11 +76,11 @@ export async function login(req, res) {
             message: 'Login successful',
             token,
             employee: {
-                id:           employee.employee_id,
-                name:         employee.name,
-                email:        employee.email,
+                id: employee.employee_id,
+                name: employee.name,
+                email: employee.email,
                 warehouse_id: employee.warehouse_id,
-                position:     employee.position
+                position: employee.position
             }
         });
     } catch (err) {
@@ -94,10 +89,10 @@ export async function login(req, res) {
     }
 }
 
-/**
- * POST /api/customer-login
- * Customer login — looks up by email only and issues a signed JWT.
- */
+
+// POST /api/customer-login
+// Customer login: looks up by email only and issues a signed JWT.
+
 export async function customerLogin(req, res) {
     try {
         const { email } = req.body;
@@ -114,11 +109,11 @@ export async function customerLogin(req, res) {
         const customer = rows[0];
 
         const payload = {
-            jti:   randomUUID(),          // unique token ID — used for blacklisting on logout
-            id:    customer.customer_id,
-            name:  customer.name,
+            jti: randomUUID(),
+            id: customer.customer_id,
+            name: customer.name,
             email: customer.email,
-            role:  'customer'
+            role: 'customer'
         };
 
         const token = jwt.sign(payload, process.env.JWT_SECRET, {
@@ -129,8 +124,8 @@ export async function customerLogin(req, res) {
             message: 'Login successful',
             token,
             customer: {
-                id:    customer.customer_id,
-                name:  customer.name,
+                id: customer.customer_id,
+                name: customer.name,
                 email: customer.email
             }
         });
@@ -140,11 +135,9 @@ export async function customerLogin(req, res) {
     }
 }
 
-/**
- * POST /api/logout
- * Revokes the current token by adding its jti to the in-memory blacklist.
- * Works for both employee and customer tokens.
- */
+// POST /api/logout
+// Revokes the current token by adding its jti to the in-memory blacklist.
+
 export function logout(req, res) {
     const { jti, exp } = req.user;
 

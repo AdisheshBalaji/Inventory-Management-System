@@ -1,18 +1,15 @@
 import jwt from 'jsonwebtoken';
 import { tokenBlacklist } from './rateLimit.js';
 
-// ─────────────────────────────────────────────
-// JWT MIDDLEWARE
-// ─────────────────────────────────────────────
 
 /**
  * Verifies the Bearer token in the Authorization header.
  * Attaches the decoded payload to req.user on success.
- * Also rejects tokens whose jti has been blacklisted (i.e. logged out).
+ * Also rejects tokens whose jti has been blacklisted
  */
 export function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // "Bearer <token>"
+    const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
         return res.status(401).json({ message: 'Access token required' });
@@ -33,9 +30,8 @@ export function authenticateToken(req, res, next) {
     }
 }
 
-/**
- * Middleware factory — ensures the authenticated user has the expected role.
- */
+
+// Middleware factory — ensures the authenticated user has the expected role.
 export function requireRole(role) {
     return (req, res, next) => {
         if (req.user?.role !== role) {

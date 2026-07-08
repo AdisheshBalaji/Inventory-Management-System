@@ -1,13 +1,10 @@
 import pool from '../db.js';
 
-// ─────────────────────────────────────────────
-// STOCK CONTROLLERS
-// ─────────────────────────────────────────────
 
-/**
- * GET /api/stocks/:warehouseId
- * Returns all stock rows for a warehouse (employee only).
- */
+
+//GET /api/stocks/:warehouseId
+//Returns all stock rows for a warehouse(employee only).
+
 export async function getStockByWarehouse(req, res) {
     try {
         const [rows] = await pool.query(`
@@ -34,19 +31,17 @@ export async function getStockByWarehouse(req, res) {
  * Body: { product_id, quantity, type: 'IN' | 'OUT' }
  *
  * Effect:
- *   IN  → stock.quantity += qty  (receiving new goods)
- *   OUT → stock.quantity -= qty  (writing off / damage / manual correction)
- *         OUT is blocked if it would push quantity below reserved_quantity
- * Every adjustment is recorded in stock_transactions as an audit trail.
+ *   IN  -> stock.quantity += qty 
+ *   OUT -> stock.quantity -= qty 
  */
 export async function adjustStock(req, res) {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
 
-        const warehouseId     = parseInt(req.params.warehouseId, 10);
-        const employeeWHId    = req.user.warehouse_id;       // from JWT
-        const employeeId      = req.user.id;                 // from JWT
+        const warehouseId = parseInt(req.params.warehouseId, 10);
+        const employeeWHId = req.user.warehouse_id;       // from JWT
+        const employeeId = req.user.id;                 // from JWT
 
         // Scope check — employee may only adjust their own warehouse
         if (warehouseId !== employeeWHId) {
@@ -116,9 +111,9 @@ export async function adjustStock(req, res) {
         res.status(200).json({
             message: `Stock ${type === 'IN' ? 'increased' : 'decreased'} successfully`,
             product_id,
-            warehouse_id:    warehouseId,
-            adjustment:      type === 'IN' ? `+${qty}` : `-${qty}`,
-            new_quantity:    newQuantity
+            warehouse_id: warehouseId,
+            adjustment: type === 'IN' ? `+${qty}` : `-${qty}`,
+            new_quantity: newQuantity
         });
 
     } catch (err) {
@@ -130,14 +125,14 @@ export async function adjustStock(req, res) {
     }
 }
 
-/**
- * GET /api/stocks/:warehouseId/transactions
- * Returns all IN/OUT adjustments for a warehouse (employee — own warehouse only).
- * Includes product name and the employee who made each change.
- */
+
+// GET /api/stocks/:warehouseId/transactions
+// Returns all IN/OUT adjustments for a warehouse.
+// Includes product name and the employee who made each change.
+
 export async function getStockTransactions(req, res) {
     try {
-        const warehouseId  = parseInt(req.params.warehouseId, 10);
+        const warehouseId = parseInt(req.params.warehouseId, 10);
         const employeeWHId = req.user.warehouse_id; // from JWT
 
         // Scope check

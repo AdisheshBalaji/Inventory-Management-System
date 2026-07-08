@@ -1,23 +1,16 @@
 import pool from '../db.js';
 import { deriveOrderStatus } from '../services/orderService.js';
 
-// ─────────────────────────────────────────────
-// ORDER CONTROLLERS
-// ─────────────────────────────────────────────
 
-/**
- * POST /api/orders
- * Creates a new sales order (customer only).
- * Routing: each product is assigned to the warehouse with the highest available
- * stock for that product name that can fulfil the requested quantity.
- */
+// POST /api/orders
+// Creates a new sales order (customer only).
+// Routing: each product is assigned to the warehouse with the highest available
 export async function createOrder(req, res) {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
 
         const { customer_id, items } = req.body;
-        // items = [{ product_id, quantity }, ...]
 
         if (!customer_id || !items || items.length === 0) {
             return res.status(400).json({ message: 'Invalid order data' });
@@ -53,9 +46,9 @@ export async function createOrder(req, res) {
             const chosen = stockOptions[0];
             totalPrice += chosen.unit_price * item.quantity;
             orderItems.push({
-                product_id:   chosen.product_id,
-                quantity:     item.quantity,
-                unit_price:   chosen.unit_price,
+                product_id: chosen.product_id,
+                quantity: item.quantity,
+                unit_price: chosen.unit_price,
                 warehouse_id: chosen.warehouse_id
             });
         }
@@ -98,10 +91,8 @@ export async function createOrder(req, res) {
     }
 }
 
-/**
- * GET /api/orders/:orderId
- * Returns full order details with derived overall status (customer only).
- */
+// GET /api/orders/:orderId
+// Returns full order details with derived overall status
 export async function getOrderById(req, res) {
     try {
         const [rows] = await pool.query(`
@@ -139,10 +130,10 @@ export async function getOrderById(req, res) {
     }
 }
 
-/**
- * GET /api/customers/:customerId/orders
- * Returns all orders for a customer, grouped and with derived status (customer only).
- */
+
+// GET /api/customers/:customerId/orders
+// Returns all orders for a customer, grouped and with derived status
+
 export async function getCustomerOrders(req, res) {
     try {
         const [rows] = await pool.query(`
@@ -174,20 +165,20 @@ export async function getCustomerOrders(req, res) {
         for (const row of rows) {
             if (!ordersMap.has(row.order_id)) {
                 ordersMap.set(row.order_id, {
-                    order_id:    row.order_id,
+                    order_id: row.order_id,
                     total_price: row.total_price,
-                    created_at:  row.created_at,
+                    created_at: row.created_at,
                     items: []
                 });
             }
             ordersMap.get(row.order_id).items.push({
-                item_id:            row.item_id,
-                product_name:       row.product_name,
-                quantity:           row.quantity,
-                unit_price:         row.unit_price,
-                warehouse_name:     row.warehouse_name,
+                item_id: row.item_id,
+                product_name: row.product_name,
+                quantity: row.quantity,
+                unit_price: row.unit_price,
+                warehouse_name: row.warehouse_name,
                 warehouse_location: row.warehouse_location,
-                item_status:        row.item_status
+                item_status: row.item_status
             });
         }
 
@@ -203,10 +194,8 @@ export async function getCustomerOrders(req, res) {
     }
 }
 
-/**
- * GET /api/orders/warehouse/:warehouseId/pending
- * Returns all PENDING order items assigned to a warehouse (employee only).
- */
+// GET /api/orders/warehouse/:warehouseId/pending
+// Returns all pending order items assigned to a warehouse
 export async function getPendingWarehouseOrders(req, res) {
     try {
         const [rows] = await pool.query(`
@@ -238,12 +227,10 @@ export async function getPendingWarehouseOrders(req, res) {
     }
 }
 
-/**
- * PATCH /api/orders/items/:itemId/fulfill
- * Fulfils an order item (employee — own warehouse only).
- * Effect: stock.quantity -= qty, stock.reserved_quantity -= qty, item.status = FULFILLED
- * Warehouse scope is taken from the verified JWT — no longer supplied by the client.
- */
+
+// PATCH /api/orders/items/:itemId/fulfill
+// Fulfils an order item
+
 export async function fulfillOrderItem(req, res) {
     const connection = await pool.getConnection();
     try {
@@ -302,12 +289,10 @@ export async function fulfillOrderItem(req, res) {
     }
 }
 
-/**
- * PATCH /api/orders/items/:itemId/reject
- * Rejects an order item (employee — own warehouse only).
- * Effect: stock.reserved_quantity -= qty (quantity unchanged), item.status = REJECTED
- * Warehouse scope is taken from the verified JWT — no longer supplied by the client.
- */
+
+// PATCH /api/orders/items/:itemId/reject
+// Rejects an order item 
+
 export async function rejectOrderItem(req, res) {
     const connection = await pool.getConnection();
     try {
