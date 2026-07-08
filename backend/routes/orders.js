@@ -9,30 +9,37 @@ import {
 } from '../controllers/orderController.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 
-const router = Router();
+const orderRouter = Router();
+const customerRouter = Router({ mergeParams: true });
 
 // ========================================
-// Customer Routes
+// Customer Routes (/api/orders/*)
 // ========================================
 
-// Create an order 
-router.post('/', authenticateToken, requireRole('customer'), createOrder);
+// Create an order
+orderRouter.post('/', authenticateToken, requireRole('customer'), createOrder);
 
-// Get order details with derived overall status 
-router.get('/:orderId', authenticateToken, requireRole('customer'), getOrderById);
+// Get order details with derived overall status
+orderRouter.get('/:orderId', authenticateToken, requireRole('customer'), getOrderById);
 
 // ========================================
-// Employee Routes
+// Employee Routes (/api/orders/*)
 // ========================================
 
+// Get all PENDING items assigned to a warehouse
+orderRouter.get('/warehouse/:warehouseId/pending', authenticateToken, requireRole('employee'), getPendingWarehouseOrders);
 
-// Get all PENDING items assigned to a warehouse 
-router.get('/warehouse/:warehouseId/pending', authenticateToken, requireRole('employee'), getPendingWarehouseOrders);
+// Fulfill an order item
+orderRouter.patch('/items/:itemId/fulfill', authenticateToken, requireRole('employee'), fulfillOrderItem);
 
-// Fulfill an order item 
-router.patch('/items/:itemId/fulfill', authenticateToken, requireRole('employee'), fulfillOrderItem);
+// Reject an order item
+orderRouter.patch('/items/:itemId/reject', authenticateToken, requireRole('employee'), rejectOrderItem);
 
-// Reject an order item 
-router.patch('/items/:itemId/reject', authenticateToken, requireRole('employee'), rejectOrderItem);
+// ========================================
+// Customer sub-resource (/api/customers/:customerId/orders)
+// ========================================
 
-export default router;
+// Get all orders for a customer (mounted separately in index.js)
+customerRouter.get('/orders', authenticateToken, requireRole('customer'), getCustomerOrders);
+
+export { orderRouter, customerRouter };

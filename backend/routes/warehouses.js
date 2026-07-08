@@ -5,9 +5,9 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 const router = Router();
 
 // Get all warehouses (public)
-router.get('/', getAllWarehouses);
+router.get('/warehouses', getAllWarehouses);
 
 // Get warehouse by id (employee only)
-router.get('/:id', authenticateToken, requireRole('employee'), getWarehouseById);
+router.get('/warehouse/:id', authenticateToken, requireRole('employee'), getWarehouseById);
 
 export default router;
